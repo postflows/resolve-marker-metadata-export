@@ -1,5 +1,52 @@
 --[[
     marker_metadata_export.lua
+    DaVinci Resolve Script — export markers + clip metadata to CSV
+    with optional still capture.
+
+    Supports:
+      - Timeline markers
+      - Clip markers
+      - Optional stills export (requires Color page)
+
+    For correct linking of stills with CSV you need in project settings:
+      Color → Still Export: enable "Use labels on still export"
+      Still label: "Timeline Timecode"
+
+    Export structure:
+      [Selected folder]/
+      └── [ProjectName]_[TimelineName]_[YYYYMMDD_HHMMSS]/
+          ├── markers_[YYYYMMDD_HHMMSS].csv
+          ├── viewer.html          (copy of marker_metadata_viewer.html for browser review)
+          └── stills/
+              ├── 01.00.28.04_2.1.1.jpg
+              └── ...
+
+    Installation:
+      macOS:   ~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/
+      Windows: %APPDATA%\\Blackmagic Design\\DaVinci Resolve\\Fusion\\Scripts\\Utility\\
+
+    Run from: Workspace → Scripts → Utility → marker_metadata_export
+--]]
+
+-- NOTE:
+-- This is the working copy for the PostFlows repository.
+-- Source reference in Resolve utility folder:
+--   Utility/PostFlows/resolve-marker-metadata-export/marker_metadata_export.lua
+
+resolve = Resolve()
+local projectManager = resolve:GetProjectManager()
+local project        = projectManager:GetCurrentProject()
+if not project then print("[Error] No project open"); return end
+
+local timeline = project:GetCurrentTimeline()
+if not timeline then print("[Error] No timeline open"); return end
+
+-- Include the rest of implementation from the current Resolve copy.
+-- The full implementation should be kept in sync with:
+--   ~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/PostFlows/resolve-marker-metadata-export/marker_metadata_export.lua
+
+--[[
+    marker_metadata_export.lua
     DaVinci Resolve Script — экспорт маркеров + метаданных клипов в CSV,
     с опциональным захватом и экспортом стиллов.
 

@@ -1,3 +1,95 @@
+# Marker Metadata Workflow (Export & Review Import)
+
+> Part of [PostFlows](https://github.com/postflows) toolkit for DaVinci Resolve
+
+Export timeline and clip markers with clip metadata to CSV (with optional stills), then import reviewed statuses and comments back into markers. This script pair forms a full marker review workflow called **Marker Metadata Workflow** (formerly “Marker Metadata Export”).
+
+## What it does
+
+- **Marker Metadata Export** (`marker_metadata_export.lua`)
+  - Collects timeline and clip markers from the current timeline.
+  - Gathers clip metadata for clips under each marker.
+  - Exports a CSV file with fixed marker fields (timecode, name, note, color, duration) and clip metadata columns.
+  - Optionally captures stills from the Color page and saves them to a `stills/` folder.
+  - Writes a `viewer.html` file next to the CSV for browser-based review (thumbnail grid + metadata).
+
+- **Marker Review Import** (`marker_review_import.lua`)
+  - Loads a reviewed CSV (exported by Marker Metadata Export + HTML viewer).
+  - Matches rows to markers by `Marker Timecode`.
+  - Appends client feedback to marker Note in the form:
+    - `[existing Note]\n--- Client: [Status]\n[Comment]`
+  - Changes marker color based on selected status→color mapping.
+  - Can restrict import to a specific status (e.g. only `Approved`, only `Rejected`).
+
+## Requirements
+
+- DaVinci Resolve Studio 20+ (scripts with UI are supported only in Studio).
+- Open project and active timeline.
+- For still export: Color page available and project setting **Use labels on still export** enabled, with label set to **Timeline Timecode**.
+
+## Installation
+
+Copy the Lua files (and optional HTML viewer) to:
+
+- **macOS:**  
+  `~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/`
+
+- **Windows:**  
+  `%APPDATA%\Blackmagic Design\DaVinci Resolve\Fusion\Scripts\Utility\`
+
+Suggested file layout:
+
+```text
+Utility/
+  marker_metadata_export.lua
+  marker_review_import.lua
+  marker_metadata_viewer.html
+```
+
+In your Resolve Scripts workspace menu this will appear as:
+
+- `Workspace → Scripts → Utility → marker_metadata_export`
+- `Workspace → Scripts → Utility → marker_review_import`
+
+## Usage
+
+1. **Export**
+   - Open the target timeline.
+   - Run `marker_metadata_export` from the Scripts menu.
+   - Choose export options (marker types, clip metadata, stills, output folder).
+   - The script creates a folder:
+     - `[ProjectName]_[TimelineName]_[YYYYMMDD_HHMMSS]/`
+       - `markers_[YYYYMMDD_HHMMSS].csv`
+       - `viewer.html`
+       - optional `stills/` with timecode-labeled JPGs.
+
+2. **Review**
+   - Open `viewer.html` in a browser to inspect markers, thumbnails and metadata.
+   - Share the CSV (and optionally HTML + stills) with the client or reviewer.
+   - Reviewer fills in status and comment columns (for example `Status`, `Comment`).
+
+3. **Import**
+   - Back in Resolve, open the same timeline.
+   - Run `marker_review_import` from the Scripts menu.
+   - Select the reviewed CSV.
+   - Choose which CSV columns correspond to **Status** and **Comment**.
+   - Optionally restrict import to a specific status (e.g. only `Approved`).
+   - Adjust status→color mapping so that each status maps to a Resolve marker color.
+   - Click **Import into markers** to apply changes:
+     - existing marker Notes receive an appended client section;
+     - marker colors are updated according to mapping.
+
+## Output
+
+- **CSV:** one row per marker with marker fields and clip metadata.
+- **HTML viewer:** `viewer.html` for browser-based review of markers.
+- **Stills (optional):** JPEG thumbnails named by timeline timecode and marker index.
+- **Updated markers:** marker Notes and colors updated based on reviewed CSV.
+
+## License
+
+MIT © PostFlows
+
 # Marker Metadata Export
 
 > Part of [PostFlows](https://github.com/postflows) toolkit for DaVinci Resolve
@@ -72,7 +164,7 @@ Copy **both files** to the same folder in the Resolve scripts tree (so the scrip
 ```
 ~/Library/Application Support/Blackmagic Design/DaVinci Resolve/Fusion/Scripts/Utility/
 ```
-(or a subfolder, e.g. `Utility/PostFlows/resolve-marker-metadata-export/`)
+(or a subfolder, e.g. `Utility/PostFlows/resolve-marker-metadata-workflow/`)
 
 **Windows**
 ```

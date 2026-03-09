@@ -1,0 +1,17 @@
+.DS_Store
+Thumbs.db
+__pycache__
+*.pyc
+*.pyo
+.idea/
+.vscode/
+STATUSES_CUSTOMIZATION.md
+
+.DS_Store
+Thumbs.db
+__pycache__
+*.pyc
+*.pyo
+.idea/
+.vscode/
+
