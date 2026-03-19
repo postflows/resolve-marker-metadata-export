@@ -153,6 +153,19 @@ do
         lib.av_timecode_make_string(tc, buf, frame)
         return ffi.string(buf)
     end
+
+    -- Parse a timecode string (e.g. "01:00:24:15" or "01:00:24;15") to an
+    -- absolute frame number.  Drop-frame is auto-detected from the ";" separator.
+    function libavutil.timecode_to_frame(tc_str, frame_rate)
+        if not tc_str or tc_str == "" then return nil end
+        local frac = get_fraction(frame_rate)
+        if not frac then return nil end
+        local rate = ffi.new("AVRational", { frac.num, frac.den })
+        local tc   = ffi.new("AVTimecode[1]")
+        local ret  = lib.av_timecode_init_from_string(tc, rate, tc_str, nil)
+        if ret ~= 0 then return nil end
+        return tc[0].start
+    end
 end
 
 -- ─── Стили UI ────────────────────────────────────────────────────────────────
@@ -274,8 +287,46 @@ local MARKER_FIXED_FIELDS = {
     "Marker Timecode", "Marker Name", "Marker Note", "Marker Color", "Marker Duration",
 }
 
+-- ─── Корректировка IN/OUT клипа под конкретный тайм-лайн айтем ───────────────
+--
+-- GetClipProperty("In") / ("Out") возвращает точки, выставленные в медиапуле
+-- (глобальные для клипа).  Фактический диапазон, используемый на тайм-лайне,
+-- смещается на GetLeftOffset() / GetRightOffset() от этих точек.
+
+local function apply_item_inout(item, clip_props, fps_str, drop)
+    if not item then return clip_props end
+
+    -- "Start TC" — тайм-код первого фрейма исходного файла.
+    -- GetLeftOffset() — сколько фреймов источника доступно левее текущей
+    -- точки входа клипа на таймлайне (т.е. расстояние от Start TC до текущего
+    -- SourceIn).  Поэтому:
+    --   source_in  = Start_TC_frame + GetLeftOffset()
+    --   source_out = source_in + GetDuration() - 1
+    local start_tc = clip_props["Start TC"]
+    if not start_tc or start_tc == "" then return clip_props end
+
+    local clip_fps  = (clip_props["FPS"] and clip_props["FPS"] ~= "") and clip_props["FPS"] or fps_str
+    local clip_drop = (start_tc:find(";") ~= nil)
+
+    local start_frame = libavutil.timecode_to_frame(start_tc, clip_fps)
+    if not start_frame then return clip_props end
+
+    local left     = item:GetLeftOffset() or 0
+    local duration = item:GetDuration()   or 0
+
+    local in_frame  = start_frame + left
+    local out_frame = in_frame + duration - 1
+
+    local result = {}
+    for k, v in pairs(clip_props) do result[k] = v end
+    result["In"]  = libavutil.timecode_from_frame(in_frame,  clip_fps, clip_drop)
+    result["Out"] = libavutil.timecode_from_frame(out_frame, clip_fps, clip_drop)
+    return result
+end
+
 -- ─── Сбор маркеров ───────────────────────────────────────────────────────────
 
+-- Returns: clip_name, clip_props, timeline_item (or nil if not found / no media)
 local function find_clip_at_frame(abs_frame)
     local tc = timeline:GetTrackCount("video")
     for tr = 1, tc do
@@ -286,13 +337,13 @@ local function find_clip_at_frame(abs_frame)
                 local e = s + item:GetDuration() - 1
                 if abs_frame >= s and abs_frame <= e then
                     local mp = item:GetMediaPoolItem()
-                    if mp then return mp:GetName() or "N/A", mp:GetClipProperty() or {} end
-                    return "N/A", {}
+                    if mp then return mp:GetName() or "N/A", mp:GetClipProperty() or {}, item end
+                    return "N/A", {}, nil
                 end
             end
         end
     end
-    return "N/A", {}
+    return "N/A", {}, nil
 end
 
 local function make_row(abs_frame, marker, clip_name, clip_props, fps_str, drop)
@@ -318,7 +369,8 @@ local function collect_timeline_markers(fps_str, drop, start_frame)
     table.sort(sorted, function(a, b) return a.frame_id < b.frame_id end)
     for _, e in ipairs(sorted) do
         local abs = start_frame + e.frame_id
-        local cn, cp = find_clip_at_frame(abs)
+        local cn, cp, item = find_clip_at_frame(abs)
+        cp = apply_item_inout(item, cp, fps_str, drop)
         table.insert(rows, make_row(abs, e.marker, cn, cp, fps_str, drop))
     end
     return rows
@@ -335,7 +387,7 @@ local function collect_clip_markers(fps_str, drop, start_frame)
                 if cm and next(cm) ~= nil then
                     local mp = item:GetMediaPoolItem()
                     local cn  = mp and mp:GetName() or "N/A"
-                    local cp  = (mp and mp:GetClipProperty()) or {}
+                    local cp  = apply_item_inout(item, (mp and mp:GetClipProperty()) or {}, fps_str, drop)
                     local cs  = item:GetStart()
                     for offset, m in pairs(cm) do
                         local abs = cs + tonumber(offset)
